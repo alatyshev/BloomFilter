@@ -10,6 +10,6 @@ Supports add, check operations and calculation of false positive probability bas
 
 Input string's MD5 hash digest is used for hashing, its byte array is then split into chunks and converted to integer numbers, which are used as an indices for adding and checking element in the filter.
 
-####Testing
+#### Testing
 As Bloom Filter checks may return false positives, we are calculating false positive probability using input parameters for Bloom filter and asserting it against actual false positive rate (to make sure they are false positives we are doing additional check in actual input file). Test is parametrized, parameters taken from CSV file to testing with different Bloom filter parameters.
 This test is slow as there are multiple parameters and large test dataset. There are also couple of smaller tests which are fast.   
