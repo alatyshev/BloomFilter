@@ -4,27 +4,28 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.BitSet;
 
-public class BloomFilter {
+class BloomFilter {
 
-    private BitSet bf;
-    private int filterSize; // m
-    private int numberOfElements; // n
-    private int numberOfHashes = 4; // k since we are using 128-bit MD5 and want to use 32-bit int, numberOfHashes could be either 2 or 4
+    private final BitSet bf;
+    private final int filterSize; // m
+    private final int numberOfElements; // n
+    private final int numberOfHashes; // k
 
-    public BloomFilter(int numberOfElements) {
-        filterSize = numberOfElements * numberOfHashes;
+    BloomFilter(int numberOfElements, int numberOfHashes, int filterSize) {
+        this.numberOfElements = numberOfElements;
         this.numberOfHashes = numberOfHashes;
-        this.bf = new BitSet(filterSize);
+        this.filterSize = filterSize;
+        bf = new BitSet(filterSize);
     }
 
-    public void add(byte[] bytes) {
+    void add(byte[] bytes) {
         int [] hashes = getHashes(bytes, numberOfHashes);
         for (int hash : hashes) {
             bf.set(Math.abs(hash % filterSize), true); // modulo is used to get smaller integer for bitset index
         }
     }
 
-    public boolean check(byte[] bytes) {
+    boolean check(byte[] bytes) {
         int [] hashes = getHashes(bytes, numberOfHashes);
         for (int hash : hashes) {
             if (!bf.get(Math.abs(hash % filterSize))) {
@@ -34,7 +35,7 @@ public class BloomFilter {
         return true;
     }
 
-    public byte[] getMessageDigest(String input) {
+    static byte[] getMessageDigest(String input) {
         try {
             MessageDigest md = MessageDigest.getInstance("MD5");
             return md.digest(input.getBytes());
@@ -44,7 +45,7 @@ public class BloomFilter {
     }
 
     // Split MD5 digest to hashes
-    public int[] getHashes(byte[] bytes, int numberOfHashes) {
+    int[] getHashes(byte[] bytes, int numberOfHashes) {
         int[] hashes = new int[numberOfHashes];
         int i = 0; // array of hashes index
         int start = 0;
@@ -58,24 +59,18 @@ public class BloomFilter {
     }
 
     // byte array to int
-    public int getIntFromBitArray(byte[] bytes){
+    private int getIntFromBitArray(byte[] bytes){
         return ByteBuffer.wrap(bytes).getInt();
     }
 
-    public BitSet getBloomFilter() {
-        return this.bf;
-    }
-
-    public int getFilterSize() {
-        return bf.size();
-    }
-
-    public int getFilterLength() {
-        return bf.length();
-    }
-
-    public void clearBloomFilter() {
-        bf.clear();
+    // (1 - e^(-k * n / m)) ^ k
+    // where:
+    // k is number of hashes
+    // m is filter size
+    // n is expected number of elements in the set
+    double calculateFalsePositiveProbability(int numberOfElements, int numberOfHashes) {
+        return Math.pow((1 - Math.exp(-numberOfHashes * (double) numberOfElements
+                / (double) filterSize)), numberOfHashes);
     }
 
 

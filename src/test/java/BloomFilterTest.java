@@ -1,5 +1,7 @@
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvFileSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.BufferedReader;
@@ -11,70 +13,82 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class BloomFilterTest {
 
-    private TestHelper testHelper = new TestHelper();
-
-    @ValueSource (ints = {2,4})
-    @ParameterizedTest
-    public void testGetHashes(int numberOfHashes) {
-        BloomFilter filter = new BloomFilter(10);
-        byte[] md = filter.getMessageDigest("test");
-        int[] resultHashes = filter.getHashes(md, numberOfHashes);
-        assertEquals(numberOfHashes, resultHashes.length);
-    }
+    private final TestHelper testHelper = new TestHelper();
 
     @Test
     void singleItemAddAndCheck() {
-        BloomFilter filter = new BloomFilter(10);
-        filter.add(filter.getMessageDigest("Dude"));
-        assertTrue(filter.check(filter.getMessageDigest("Dude")),
-                "Dude should be in the set");
-        assertFalse(filter.check(filter.getMessageDigest("Dudetta")),
-                "Dudetta shouldn't be in the set");
+        BloomFilter bf = new BloomFilter(1, 2, 100);
+        bf.add(BloomFilter.getMessageDigest("Dude"));
+        assertTrue(bf.check(BloomFilter.getMessageDigest("Dude")), "Dude should be in the set");
+        assertFalse(bf.check(BloomFilter.getMessageDigest("Dudetta")), "Dudetta shouldn't be in the set");
     }
 
     @Test
     void smallWordListAddAndCheck() throws IOException {
 
-        BloomFilter filter = new BloomFilter(100);
-        try (BufferedReader br = new BufferedReader(new FileReader("src/test/resources/wordlist_small.csv"))) {
+        BloomFilter bf = new BloomFilter(100, 4, 10000);
+        try (BufferedReader br = new BufferedReader(new FileReader("src/test/resources/wordlist_small.txt"))) {
             String word;
             while ((word = br.readLine()) != null) {
-                byte[] md = filter.getMessageDigest(word);
+                byte[] md = BloomFilter.getMessageDigest(word);
                 System.out.println("Adding word to filter: " + word);
-                filter.add(md);
-                assertTrue(filter.check(md));
+                bf.add(md);
+                assertTrue(bf.check(md));
             }
         }
-        String randomWord = testHelper.generateRandomWord();
-        assertFalse(filter.check(filter.getMessageDigest(randomWord))
-                , "False positive! Random word " + randomWord + " shouldn't be in the set");
+        assertFalse(bf.check(BloomFilter.getMessageDigest("wolf"))
+                , "False positive! Word 'wolf' shouldn't be in the set");
+        assertFalse(bf.check(BloomFilter.getMessageDigest("bear"))
+                , "False positive! Word 'dog' shouldn't be in the set");
     }
 
-    @Test
-    void largeWordListAddAndCheck() throws IOException {
-        String largeFilePath = "src/test/resources/wordlist_large.csv";
-        BloomFilter filter = new BloomFilter(200000000);
+    @ParameterizedTest
+    @CsvFileSource(resources= "/bloom-filter-test-parameters.csv", numLinesToSkip = 1)
+    @DisplayName("Reads large word list, adds to filter and checks random 5 character strings in the filter, " +
+            "if false positive found checks their if the string is in the file, " +
+            "compares actual vs. expected probability of false positives")
+    void largeWordListAddAndCheckAgainstRandomStrings(int numberOfHashes, int filterSize) throws IOException {
+        int numberOfElements = 338882; //number of lines in large wordlist
+        String largeFilePath = "src/test/resources/wordlist_large.txt";
+        BloomFilter bf = new BloomFilter(numberOfElements, numberOfHashes, filterSize);
+
+        // add words from file to filter
         try (BufferedReader br = new BufferedReader(new FileReader(largeFilePath))) {
             String word;
             while ((word = br.readLine()) != null) {
-                byte[] md = filter.getMessageDigest(word);
-                filter.add(md);
+                byte[] md = BloomFilter.getMessageDigest(word);
+                bf.add(md);
             }
         }
+
+        double falsePositiveProbability = bf.calculateFalsePositiveProbability(numberOfElements, numberOfHashes);
+        System.out.println("False Positives Probability: " + falsePositiveProbability);
         int falsePositivesCount = 0;
-        for(int i = 0; i < 10000; i++){
-            String randomWord = testHelper.generateRandomWord();
-            if (filter.check(filter.getMessageDigest(randomWord))) {
-                System.out.println("Random word matched in filter: " + randomWord);
-                if ( ! testHelper.isFileContainsWord(new File(largeFilePath), randomWord) ) {
+        int random5CharStringProbesCount = 100;
+
+        // check if random 5 chars string is in filter,
+        // if found in filter check from file, if not found in file count as false positive
+        for(int i = 0; i < random5CharStringProbesCount; i++){
+            String randomWord = TestHelper.generateRandomWord();
+            if (bf.check(BloomFilter.getMessageDigest(randomWord))) {
+                if ( !TestHelper.isFileContainsWord(new File(largeFilePath), randomWord) ) {
                     falsePositivesCount ++;
-                    System.out.println("False positive word: " + randomWord);
                 }
             }
         }
+        int actualFalsePositiveRate = falsePositivesCount / random5CharStringProbesCount;
         System.out.println("False positives count: " + falsePositivesCount);
-
+        System.out.println("False positives rate: " + actualFalsePositiveRate);
+        assertTrue(actualFalsePositiveRate <= falsePositiveProbability);
     }
 
+    @ValueSource (ints = {2,4})
+    @ParameterizedTest
+    public void testGetHashes(int numberOfHashes) {
+        BloomFilter bf = new BloomFilter(10, numberOfHashes, 1000);
+        byte[] md = BloomFilter.getMessageDigest("test");
+        int[] resultHashes = bf.getHashes(md, numberOfHashes);
+        assertEquals(numberOfHashes, resultHashes.length);
+    }
 
 }
