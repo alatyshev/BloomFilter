@@ -31,7 +31,6 @@ public class BloomFilterTest {
             String word;
             while ((word = br.readLine()) != null) {
                 byte[] md = BloomFilter.getMessageDigest(word);
-                System.out.println("Adding word to filter: " + word);
                 bf.add(md);
                 assertTrue(bf.check(md));
             }
@@ -47,7 +46,7 @@ public class BloomFilterTest {
     @DisplayName("Reads large word list, adds to filter and checks random 5 character strings in the filter, " +
             "if false positive found checks their if the string is in the file, " +
             "compares actual vs. expected probability of false positives")
-    void largeWordListAddAndCheckAgainstRandomStrings(int numberOfHashes, int filterSize) throws IOException {
+    void largeWordListAddAndCheckAgainstRandomStrings(int numberOfHashes, int filterSize, int randomStringProbesCount) throws IOException {
         int numberOfElements = 338882; //number of lines in large wordlist
         String largeFilePath = "src/test/resources/wordlist_large.txt";
         BloomFilter bf = new BloomFilter(numberOfElements, numberOfHashes, filterSize);
@@ -62,13 +61,11 @@ public class BloomFilterTest {
         }
 
         double falsePositiveProbability = bf.calculateFalsePositiveProbability(numberOfElements, numberOfHashes);
-        System.out.println("False Positives Probability: " + falsePositiveProbability);
         int falsePositivesCount = 0;
-        int random5CharStringProbesCount = 100;
 
         // check if random 5 chars string is in filter,
         // if found in filter check from file, if not found in file count as false positive
-        for(int i = 0; i < random5CharStringProbesCount; i++){
+        for(int i = 0; i < randomStringProbesCount; i++){
             String randomWord = TestHelper.generateRandomWord();
             if (bf.check(BloomFilter.getMessageDigest(randomWord))) {
                 if ( !TestHelper.isFileContainsWord(new File(largeFilePath), randomWord) ) {
@@ -76,9 +73,12 @@ public class BloomFilterTest {
                 }
             }
         }
-        int actualFalsePositiveRate = falsePositivesCount / random5CharStringProbesCount;
-        System.out.println("False positives count: " + falsePositivesCount);
-        System.out.println("False positives rate: " + actualFalsePositiveRate);
+        double actualFalsePositiveRate = falsePositivesCount / (double)randomStringProbesCount;
+        System.out.println("Test run with: " + "numberOfHashes=" + numberOfHashes + ", filterSize= " +filterSize);
+        System.out.println("===================================================");
+        System.out.println("False Positives Expected Probability: " + falsePositiveProbability);
+        System.out.println("False positives count: " + falsePositivesCount + " out of " + randomStringProbesCount + " probes");
+        System.out.println("False Positives Actual Rate: " + actualFalsePositiveRate);
         assertTrue(actualFalsePositiveRate <= falsePositiveProbability);
     }
 
