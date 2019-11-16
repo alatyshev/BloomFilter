@@ -63,11 +63,13 @@ class BloomFilter {
         return ByteBuffer.wrap(bytes).getInt();
     }
 
-    // (1 - e^(-k * n / m)) ^ k
-    // where:
-    // k is number of hashes
-    // m is filter size
-    // n is expected number of elements in the set
+    /* False Positive probability is calculated as:
+     P = (1 - e^(-k * n / m)) ^ k
+     where:
+     k is number of hashes
+     m is filter size
+     n is expected number of elements in the set
+     */
     double calculateFalsePositiveProbability(int numberOfElements, int numberOfHashes) {
         return Math.pow((1 - Math.exp(-numberOfHashes * (double) numberOfElements
                 / (double) filterSize)), numberOfHashes);
