@@ -58,7 +58,7 @@ public class BloomFilterTest {
             }
         }
 
-        double falsePositiveProbability = bf.calculateFalsePositiveProbability(numberOfElements, numberOfHashes);
+        double falsePositiveProbability = bf.calculateFalsePositiveProbability();
         int falsePositivesCount = 0;
 
         /* check if random 5 chars string is in filter,

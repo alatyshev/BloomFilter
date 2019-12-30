@@ -70,7 +70,7 @@ class BloomFilter {
      m is filter size
      n is expected number of elements in the set
      */
-    double calculateFalsePositiveProbability(int numberOfElements, int numberOfHashes) {
+    double calculateFalsePositiveProbability() {
         return Math.pow((1 - Math.exp(-numberOfHashes * (double) numberOfElements
                 / (double) filterSize)), numberOfHashes);
     }
